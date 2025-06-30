@@ -45,7 +45,8 @@ The workflow solves exactly this problem:
       pgp-key-maintenance:
         name: PGP key maintenance
         secrets: inherit
-        uses: vlsi/provision-release-pgp-key/.github/workflows/pgp-key-maintenance.yaml@main # v1
+        # Use digest pinning for the security and review the workflow before updating the pin
+        uses: vlsi/provision-release-pgp-key/.github/workflows/pgp-key-maintenance.yaml@e25e2522533ee5ad5b6f9222a0adbadff7249d4d # v1
         with:
           key-name: vlsi/test-pgp-key
           key-email: vlsi--test-pgp-keys@example.org
