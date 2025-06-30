@@ -1,0 +1,121 @@
+# See https://github.com/vlsi/provision-release-pgp-key
+name: PGP Key Maintenance
+
+on:
+# Uncomment workflow_dispatch if you copy the workflow to your own repository, and you want to launch the workflow from GitHub UI
+#  workflow_dispatch:
+# Comment workflow_call if you copy the workflow to your own repository. This is here so simplified reuse is possible from other repositories.
+  workflow_call:
+    inputs:
+      key-name:
+        description: Name-Real for the generated PGP key
+        required: false
+        type: string
+      key-email:
+        description: Name-Email for the generated PGP key
+        required: false
+        type: string
+      key-lifetime:
+        description: The lifetime for the key (int), days
+        required: true
+        type: number
+
+permissions: read-all
+
+env:
+  # You might hard-code the values here if you copy the workflow
+  KEY_NAME: ${{ inputs.key-name }}
+  KEY_EMAIL: ${{ inputs.key-email }}
+  KEY_LIFETIME: ${{ inputs.key-lifetime }}
+jobs:
+  pgp-key-maintenance:
+    name: PGP key maintenance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create new PGP key
+        if: ${{ vars.RELEASE_PGP_FINGERPRINT == '' }}
+        shell: bash
+        id: create_key
+        env:
+          # This should be a fine-grained access token with "secrets: write; variables: write" permissions
+          # See https://github.com/settings/personal-access-tokens/new
+          # The token could be short-lived, and one could provision it just for renewing PGP-key only
+          GH_TOKEN: ${{ secrets.RELEASE_PGP_SECRET_UPDATE_TOKEN }}
+        # language=bash
+        run: |
+          # Create new PGP key
+
+          # Generate a random passphrase
+          echo "Generating passphrase"
+          RELEASE_PGP_PASSPHRASE=$(openssl rand -base64 32)
+          echo "Adding RELEASE_PGP_PASSPHRASE secret"
+          gh secret set RELEASE_PGP_PASSPHRASE --repo "$GITHUB_REPOSITORY" --body "$RELEASE_PGP_PASSPHRASE"
+
+          echo "Generating a PGP key"
+          gpg --batch --gen-key <<EOF
+          Key-Type: RSA
+          Key-Length: 4096
+          Subkey-Type: RSA
+          Subkey-Length: 4096
+          Name-Real: $KEY_NAME
+          Name-Email: $KEY_EMAIL
+          Expire-Date: $KEY_LIFETIME
+          Passphrase: $RELEASE_PGP_PASSPHRASE
+          %commit
+          EOF
+
+          echo "Key generation completed"
+          gpg --batch --list-secret-keys
+
+          RELEASE_PGP_FINGERPRINT=$(gpg --list-secret-keys -fingerprint --with-colons "$KEY_NAME" | grep -m 1 fpr | cut -d ':' -f 10)
+
+          echo "Key fingerprint is $RELEASE_PGP_FINGERPRINT"
+
+          echo "Adding RELEASE_PGP_PRIVATE_KEY secret"
+          gpg --batch --passphrase-fd 0 --pinentry-mode loopback --export-secret-keys --armor "$RELEASE_PGP_FINGERPRINT" <<<"$RELEASE_PGP_PASSPHRASE" |
+            gh secret set RELEASE_PGP_PRIVATE_KEY --repo "$GITHUB_REPOSITORY"
+
+          echo "Adding RELEASE_PGP_FINGERPRINT variable"
+          gh variable set RELEASE_PGP_FINGERPRINT --repo "$GITHUB_REPOSITORY" --body "$RELEASE_PGP_FINGERPRINT"
+
+          echo "fingerprint=$RELEASE_PGP_FINGERPRINT" >> $GITHUB_OUTPUT
+
+      - name: Extend PGP key
+        if: ${{ vars.RELEASE_PGP_FINGERPRINT != '' }}
+        shell: bash
+        env:
+          # This should be a fine-grained access token with "secrets: write" permission
+          # The token could be short-lived, and one could provision it just for renewing PGP-key only
+          GH_TOKEN: ${{ secrets.RELEASE_PGP_SECRET_UPDATE_TOKEN }}
+          # We can't access secrets dynamically, so we need to explicitly pass them to the script
+          RELEASE_PGP_PRIVATE_KEY: ${{ secrets.RELEASE_PGP_PRIVATE_KEY }}
+          RELEASE_PGP_PASSPHRASE: ${{ secrets.RELEASE_PGP_PASSPHRASE }}
+          RELEASE_PGP_FINGERPRINT: ${{ vars.RELEASE_PGP_FINGERPRINT }}
+        # language=bash
+        run: |
+          # Extend PGP key and update the secret
+          # We pass the secret with a temporary stream so the contents does not appear in ps aux, /proc/.../cmdline, and history
+          echo "Importing PGP key"
+          exec 3<<<"$RELEASE_PGP_PASSPHRASE"
+          gpg --batch --import --passphrase-fd 3 --pinentry-mode loopback <<<"$RELEASE_PGP_PRIVATE_KEY"
+          exec 3<&-  # close the fd after use
+
+          echo "Extending PGP key"
+          gpg --batch --pinentry-mode loopback --passphrase-fd 0 --quick-set-expire "$RELEASE_PGP_FINGERPRINT" "$KEY_LIFETIME" <<<"$RELEASE_PGP_PASSPHRASE"
+
+          gpg --batch --list-secret-keys
+
+          echo "Updating RELEASE_PGP_PRIVATE_KEY secret"
+          gpg --batch --passphrase-fd 0 --pinentry-mode loopback --export-secret-keys --armor "$RELEASE_PGP_FINGERPRINT" <<<"$RELEASE_PGP_PASSPHRASE" |
+            gh secret set RELEASE_PGP_PRIVATE_KEY --repo "$GITHUB_REPOSITORY"
+
+      - name: Send PGP key to key-servers
+        shell: bash
+        env:
+          RELEASE_PGP_FINGERPRINT: ${{ vars.RELEASE_PGP_FINGERPRINT || steps.create_key.outputs.fingerprint }}
+        # language=bash
+        run: |
+          for keyserver in "keyserver.ubuntu.com" "keys.openpgp.org" "pgp.mit.edu"; do
+            echo "Publishing PGP key to $keyserver"
+            gpg --keyserver "$keyserver" --send-keys "$RELEASE_PGP_FINGERPRINT"
+          done
