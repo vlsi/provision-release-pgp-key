@@ -62,6 +62,7 @@ to your own repository.
 4. Store the created token as a repository secret `RELEASE_PGP_SECRET_UPDATE_TOKEN`
 5. Execute the workflow: navigate to Actions, select `PGP Key Maintenance`, click `Run workflow`
 6. The workflow would generate a key, create repository secrets, and it would send the key to the keyservers
+7. Publish the key fingerprint on your website so the users would know the official release signing key
 
 ## Extending the key
 
