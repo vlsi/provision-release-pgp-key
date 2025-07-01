@@ -2,10 +2,20 @@
 name: PGP Key Maintenance
 
 on:
-# Uncomment workflow_dispatch if you copy the workflow to your own repository, and you want to launch the workflow from GitHub UI
-#  workflow_dispatch:
-# Comment workflow_call if you copy the workflow to your own repository. This is here so simplified reuse is possible from other repositories.
+  # Uncomment workflow_dispatch if you copy the workflow to your own repository, and you want to launch the workflow from GitHub UI
+  #  workflow_dispatch:
+  # Comment workflow_call if you copy the workflow to your own repository. This is here so simplified reuse is possible from other repositories.
   workflow_call:
+    secrets:
+      RELEASE_PGP_SECRET_UPDATE_TOKEN:
+        required: true
+        description: GitHub token for creating and updating PGP key secrets. The token should have secrets:write and variables:write scopes
+      RELEASE_PGP_PRIVATE_KEY:
+        required: false
+        description: The current PGP private key if exists
+      RELEASE_PGP_PASSPHRASE:
+        required: false
+        description: The passphrase for the PGP private key if exists
     inputs:
       key-name:
         description: Name-Real for the generated PGP key
@@ -21,7 +31,7 @@ on:
         type: number
       keyservers:
         description: Keyservers for publishing the public PGP keys
-        required: true
+        required: false
         type: string
         default: |
           keyserver.ubuntu.com
@@ -125,7 +135,7 @@ jobs:
         # language=bash
         run: |
           # Read into array, splitting on all whitespace (space, tab, newline)
-          IFS=$'\n\t ' read -r -d '' -a KS_ARR <<< "$KEYSERVERS"
+          IFS=$'\n\t ' read -r -d '~' -a KS_ARR <<< "$KEYSERVERS~"
           for keyserver in "${KS_ARR[@]}"; do
             echo "Publishing PGP key to $keyserver"
             gpg --keyserver "$keyserver" --send-keys "$RELEASE_PGP_FINGERPRINT"

@@ -37,13 +37,17 @@ The workflow solves exactly this problem:
     jobs:
       pgp-key-maintenance:
         name: PGP key maintenance
-        secrets: inherit
         # Use digest pinning for the security and review the workflow before updating the pin
         uses: vlsi/provision-release-pgp-key/.github/workflows/pgp-key-maintenance.yaml@e25e2522533ee5ad5b6f9222a0adbadff7249d4d # v1
+        secrets:
+          RELEASE_PGP_SECRET_UPDATE_TOKEN: ${{ secrets.RELEASE_PGP_SECRET_UPDATE_TOKEN }}
+          RELEASE_PGP_PRIVATE_KEY: ${{ secrets.RELEASE_PGP_PRIVATE_KEY }}
+          RELEASE_PGP_PASSPHRASE: ${{ secrets.RELEASE_PGP_PASSPHRASE }}
         with:
           key-name: vlsi/test-pgp-key
           key-email: vlsi--test-pgp-keys@example.org
           key-lifetime: 1825
+          # The list of keyservers is optional, and the default value is shown below
           keyservers: |
             keyserver.ubuntu.com
             keys.openpgp.org

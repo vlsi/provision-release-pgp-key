@@ -1,0 +1,29 @@
+name: Example PGP Key Maintenance
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - '**'
+
+permissions: read-all
+
+jobs:
+  pgp-key-maintenance:
+    name: PGP key maintenance
+    # Use digest pinning for the security and review the workflow before updating the pin
+    # Note: this uses the workflow from the local repository, so there's no @sha pinning
+    uses: ./.github/workflows/pgp-key-maintenance.yaml
+    # A real-life usage would be as follows
+    # uses: vlsi/provision-release-pgp-key/.github/workflows/pgp-key-maintenance.yaml@e25e2522533ee5ad5b6f9222a0adbadff7249d4d # v1
+    secrets:
+      RELEASE_PGP_SECRET_UPDATE_TOKEN: ${{ secrets.RELEASE_PGP_SECRET_UPDATE_TOKEN }}
+      RELEASE_PGP_PRIVATE_KEY: ${{ secrets.RELEASE_PGP_PRIVATE_KEY }}
+      RELEASE_PGP_PASSPHRASE: ${{ secrets.RELEASE_PGP_PASSPHRASE }}
+    with:
+      key-name: test pgp key
+      key-email: test-email@example.org
+      key-lifetime: 1825
+
