@@ -3,7 +3,7 @@ name: Example PGP Key Maintenance
 on:
   push:
     branches:
-      - main
+      - '**'
   pull_request:
     branches:
       - '**'
