@@ -19,6 +19,14 @@ on:
         description: The lifetime for the key (int), days
         required: true
         type: number
+      keyservers:
+        description: Keyservers for publishing the public PGP keys
+        required: true
+        type: string
+        default: |
+          keyserver.ubuntu.com
+          keys.openpgp.org
+          pgp.mit.edu
 
 permissions: read-all
 
@@ -113,9 +121,12 @@ jobs:
         shell: bash
         env:
           RELEASE_PGP_FINGERPRINT: ${{ vars.RELEASE_PGP_FINGERPRINT || steps.create_key.outputs.fingerprint }}
+          KEYSERVERS: ${{ inputs.keyservers }}
         # language=bash
         run: |
-          for keyserver in "keyserver.ubuntu.com" "keys.openpgp.org" "pgp.mit.edu"; do
+          # Read into array, splitting on all whitespace (space, tab, newline)
+          IFS=$'\n\t ' read -r -d '' -a KS_ARR <<< "$KEYSERVERS"
+          for keyserver in "${KS_ARR[@]}"; do
             echo "Publishing PGP key to $keyserver"
             gpg --keyserver "$keyserver" --send-keys "$RELEASE_PGP_FINGERPRINT"
           done
