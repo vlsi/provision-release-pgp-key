@@ -38,7 +38,7 @@ The workflow solves exactly this problem:
       pgp-key-maintenance:
         name: PGP key maintenance
         # Use digest pinning for the security and review the workflow before updating the pin
-        uses: vlsi/provision-release-pgp-key/.github/workflows/pgp-key-maintenance.yaml@e25e2522533ee5ad5b6f9222a0adbadff7249d4d # v1
+        uses: vlsi/provision-release-pgp-key/.github/workflows/pgp-key-maintenance.yaml@47caa11d98dd9e897523af1f16532bf6152e8444 # v1
         secrets:
           RELEASE_PGP_SECRET_UPDATE_TOKEN: ${{ secrets.RELEASE_PGP_SECRET_UPDATE_TOKEN }}
           RELEASE_PGP_PRIVATE_KEY: ${{ secrets.RELEASE_PGP_PRIVATE_KEY }}
